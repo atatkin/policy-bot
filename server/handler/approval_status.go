@@ -79,13 +79,16 @@ func (h *ApprovalStatus) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// if ?ignorebots=true is included in the query, approval comments from bots, such as policy-bot be ignored
+	ignoreCommentsFromBots := r.URL.Query().Has(ignoreBotsParam) && r.URL.Query().Get(ignoreBotsParam) == "true"
+
 	ctx, logger = h.PreparePRContext(ctx, installation.ID, pr)
 	result, err := h.getApprovalResult(ctx, installation, pull.Locator{
 		Owner:  owner,
 		Repo:   repo,
 		Number: number,
 		Value:  pr,
-	}, r.URL.Query().Has(ignoreBotsParam))
+	}, ignoreCommentsFromBots)
 
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to get approval result for pull request")
