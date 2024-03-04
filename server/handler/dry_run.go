@@ -32,8 +32,8 @@ const (
 	LogKeyDryRun = "dry_run"
 )
 
-// DryRun evaluates the current approval status for a pull request based on it's current state, however unlike the
-// standard GitHub event handlers, the the status in this case is returned and not written back to the pull request.
+// DryRun evaluates the current approval status for a pull request based on it's current state. Unlike the standard GitHub
+// event handlers however, the the status in this case is returned and not written back to the pull request.
 type DryRun struct {
 	Base
 }
