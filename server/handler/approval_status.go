@@ -100,12 +100,12 @@ func (h *ApprovalStatus) getApprovalResult(ctx context.Context, installation git
 	switch {
 	case err != nil:
 		return nil, errors.Wrap(err, "failed to generate eval context")
-	case evalCtx.Config.Config == nil:
-		return nil, errors.Wrap(err, "no policy file found in repo")
 	case evalCtx.Config.LoadError != nil:
 		return nil, errors.Wrap(evalCtx.Config.LoadError, "failed to load policy file")
 	case evalCtx.Config.ParseError != nil:
 		return nil, errors.Wrap(evalCtx.Config.ParseError, "failed to parse policy")
+	case evalCtx.Config.Config == nil:
+		return nil, errors.New("no policy file found in repo")
 	}
 
 	evaluator, err := policy.ParsePolicy(evalCtx.Config.Config)
