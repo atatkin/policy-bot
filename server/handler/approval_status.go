@@ -27,8 +27,11 @@ import (
 	"github.com/rs/zerolog"
 )
 
+const ignoreBotsParam = "ignorebots"
+
 // ApprovalStatus evaluates the approval status for a pull request based on it's current state. Unlike the standard
-// GitHub event handlers, the status in this case is returned and not written back to the pull request.
+// GitHub event handlers, the status in this case is returned and not written back to the pull request. If an
+// "ignorebots" query param is included, approval comments from bots will not be considered.
 type ApprovalStatus struct {
 	Base
 }
@@ -82,7 +85,7 @@ func (h *ApprovalStatus) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Repo:   repo,
 		Number: number,
 		Value:  pr,
-	})
+	}, r.URL.Query().Has(ignoreBotsParam))
 
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to get approval result for pull request")
@@ -95,7 +98,7 @@ func (h *ApprovalStatus) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	baseapp.WriteJSON(w, http.StatusOK, &response)
 }
 
-func (h *ApprovalStatus) getApprovalResult(ctx context.Context, installation githubapp.Installation, loc pull.Locator) (*common.Result, error) {
+func (h *ApprovalStatus) getApprovalResult(ctx context.Context, installation githubapp.Installation, loc pull.Locator, ignoreBots bool) (*common.Result, error) {
 	evalCtx, err := h.NewEvalContext(ctx, installation.ID, loc)
 	switch {
 	case err != nil:
@@ -106,6 +109,14 @@ func (h *ApprovalStatus) getApprovalResult(ctx context.Context, installation git
 		return nil, errors.Wrap(evalCtx.Config.ParseError, "failed to parse policy")
 	case evalCtx.Config.Config == nil:
 		return nil, errors.New("no policy file found in repo")
+	}
+
+	// if an ignorebots query param is included, all approvals from bots are ignored in the evaluation
+	// regardless of if the original rules have that option set or not.
+	if ignoreBots {
+		for _, rule := range evalCtx.Config.Config.ApprovalRules {
+			rule.Options.IgnoreBotComments = true
+		}
 	}
 
 	evaluator, err := policy.ParsePolicy(evalCtx.Config.Config)
