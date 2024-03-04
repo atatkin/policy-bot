@@ -21,8 +21,10 @@ import (
 	"github.com/google/go-github/v58/github"
 	"github.com/palantir/go-baseapp/baseapp"
 	"github.com/palantir/go-githubapp/githubapp"
+	"github.com/palantir/policy-bot/policy"
 	"github.com/palantir/policy-bot/policy/common"
 	"github.com/palantir/policy-bot/pull"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 )
 
@@ -30,9 +32,8 @@ const (
 	LogKeyDryRun = "dry_run"
 )
 
-// DryRun performs an evaluation of of a specific pull request, similar to if the evaluation how been triggered by a
-// GitHub event. However instead of writing the result as a status back to the pr, it returns a response indicating
-// what the status would be if the pr was triggered from a GitHub event as normal.
+// DryRun evaluates the current approval status for a pull request based on it's current state, however unlike the
+// standard GitHub event handlers, the the status in this case is returned and not written back to the pull request.
 type DryRun struct {
 	Base
 }
@@ -81,7 +82,7 @@ func (h *DryRun) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx, logger = h.prepareDryRunContext(ctx, installation.ID, pr)
-	evalCtx, err := h.NewEvalContext(ctx, installation.ID, pull.Locator{
+	result, err := h.getApprovalResult(ctx, installation, pull.Locator{
 		Owner:  owner,
 		Repo:   repo,
 		Number: number,
@@ -89,27 +90,7 @@ func (h *DryRun) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err != nil {
-		logger.Error().Err(err).Msg("failed to generate eval context")
-		baseapp.WriteJSON(w, http.StatusInternalServerError, &response)
-		return
-	}
-
-	evaluator, err := evalCtx.ParseConfig(ctx, common.TriggerAll)
-	if err != nil {
-		logger.Error().Err(err).Msg("failed to get evaluator")
-		baseapp.WriteJSON(w, http.StatusInternalServerError, &response)
-		return
-	}
-
-	if evaluator == nil {
-		logger.Error().Msg("evaluator was nil")
-		baseapp.WriteJSON(w, http.StatusInternalServerError, &response)
-		return
-	}
-
-	result := evaluator.Evaluate(ctx, evalCtx.PullContext)
-	if result.Error != nil {
-		logger.Error().Err(result.Error).Msgf("error evaluating policy in %s: %s", evalCtx.Config.Source, evalCtx.Config.Path)
+		logger.Error().Err(err).Msg("failed to get approval result for pull request")
 		baseapp.WriteJSON(w, http.StatusInternalServerError, &response)
 		return
 	}
@@ -123,7 +104,31 @@ func (h *DryRun) prepareDryRunContext(ctx context.Context, installationID int64,
 	ctx, logger := githubapp.PreparePRContext(ctx, installationID, pr.GetBase().GetRepo(), pr.GetNumber())
 
 	logger = logger.With().Bool(LogKeyDryRun, true).Str(LogKeyGitHubSHA, pr.GetHead().GetSHA()).Logger()
-	ctx = logger.WithContext(ctx)
+	return logger.WithContext(ctx), &logger
+}
 
-	return ctx, &logger
+func (h *DryRun) getApprovalResult(ctx context.Context, installation githubapp.Installation, loc pull.Locator) (*common.Result, error) {
+	evalCtx, err := h.NewEvalContext(ctx, installation.ID, loc)
+	switch {
+	case err != nil:
+		return nil, errors.Wrap(err, "failed to generate eval context")
+	case evalCtx.Config.Config == nil:
+		return nil, errors.Wrap(err, "no policy file found in repo")
+	case evalCtx.Config.LoadError != nil:
+		return nil, errors.Wrap(evalCtx.Config.LoadError, "failed to load policy file")
+	case evalCtx.Config.ParseError != nil:
+		return nil, errors.Wrap(evalCtx.Config.ParseError, "failed to parse policy")
+	}
+
+	evaluator, err := policy.ParsePolicy(evalCtx.Config.Config)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get policy evaluator")
+	}
+
+	result := evaluator.Evaluate(ctx, evalCtx.PullContext)
+	if result.Error != nil {
+		return nil, errors.Wrapf(err, "error evaluating policy in %s: %s", evalCtx.Config.Source, evalCtx.Config.Path)
+	}
+
+	return &result, nil
 }
