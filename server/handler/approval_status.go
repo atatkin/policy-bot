@@ -27,8 +27,8 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// ApprovalStatus evaluates the current approval status for a pull request based on it's current state. Unlike the standard
-// GitHub event handlers however, the the status in this case is returned and not written back to the pull request.
+// ApprovalStatus evaluates the approval status for a pull request based on it's current state. Unlike the standard
+// GitHub event handlers, the the status in this case is returned and not written back to the pull request.
 type ApprovalStatus struct {
 	Base
 }
