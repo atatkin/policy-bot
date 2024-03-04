@@ -28,7 +28,7 @@ import (
 )
 
 // ApprovalStatus evaluates the approval status for a pull request based on it's current state. Unlike the standard
-// GitHub event handlers, the the status in this case is returned and not written back to the pull request.
+// GitHub event handlers, the status in this case is returned and not written back to the pull request.
 type ApprovalStatus struct {
 	Base
 }
