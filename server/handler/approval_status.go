@@ -18,7 +18,6 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/google/go-github/v58/github"
 	"github.com/palantir/go-baseapp/baseapp"
 	"github.com/palantir/go-githubapp/githubapp"
 	"github.com/palantir/policy-bot/policy"
@@ -28,25 +27,21 @@ import (
 	"github.com/rs/zerolog"
 )
 
-const (
-	LogKeyDryRun = "dry_run"
-)
-
-// DryRun evaluates the current approval status for a pull request based on it's current state. Unlike the standard GitHub
-// event handlers however, the the status in this case is returned and not written back to the pull request.
-type DryRun struct {
+// ApprovalStatus evaluates the current approval status for a pull request based on it's current state. Unlike the standard
+// GitHub event handlers however, the the status in this case is returned and not written back to the pull request.
+type ApprovalStatus struct {
 	Base
 }
 
-type DryRunResponse struct {
+type ApprovalStatusResponse struct {
 	Status      string `json:"status"`
 	Description string `json:"description"`
 }
 
-func (h *DryRun) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *ApprovalStatus) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	logger := zerolog.Ctx(ctx)
-	var response DryRunResponse
+	logger := *zerolog.Ctx(ctx)
+	var response ApprovalStatusResponse
 
 	owner, repo, number, ok := parsePullParams(r)
 	if !ok {
@@ -81,7 +76,7 @@ func (h *DryRun) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx, logger = h.prepareDryRunContext(ctx, installation.ID, pr)
+	ctx, logger = h.PreparePRContext(ctx, installation.ID, pr)
 	result, err := h.getApprovalResult(ctx, installation, pull.Locator{
 		Owner:  owner,
 		Repo:   repo,
@@ -100,14 +95,7 @@ func (h *DryRun) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	baseapp.WriteJSON(w, http.StatusOK, &response)
 }
 
-func (h *DryRun) prepareDryRunContext(ctx context.Context, installationID int64, pr *github.PullRequest) (context.Context, *zerolog.Logger) {
-	ctx, logger := githubapp.PreparePRContext(ctx, installationID, pr.GetBase().GetRepo(), pr.GetNumber())
-
-	logger = logger.With().Bool(LogKeyDryRun, true).Str(LogKeyGitHubSHA, pr.GetHead().GetSHA()).Logger()
-	return logger.WithContext(ctx), &logger
-}
-
-func (h *DryRun) getApprovalResult(ctx context.Context, installation githubapp.Installation, loc pull.Locator) (*common.Result, error) {
+func (h *ApprovalStatus) getApprovalResult(ctx context.Context, installation githubapp.Installation, loc pull.Locator) (*common.Result, error) {
 	evalCtx, err := h.NewEvalContext(ctx, installation.ID, loc)
 	switch {
 	case err != nil:

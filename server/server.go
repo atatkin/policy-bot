@@ -217,7 +217,7 @@ func New(c *Config) (*Server, error) {
 	// additional API routes
 	mux.Handle(pat.Get("/api/health"), handler.Health())
 	mux.Handle(pat.Put("/api/validate"), handler.Validate())
-	mux.Handle(pat.Get("/api/:owner/:repo/:number/dryrun"), &handler.DryRun{Base: basePolicyHandler})
+	mux.Handle(pat.Get("/api/:owner/:repo/:number/status"), &handler.ApprovalStatus{Base: basePolicyHandler})
 	mux.Handle(pat.Get(oauth2.DefaultRoute), oauth2.NewHandler(
 		oauth2.GetConfig(c.Github, nil),
 		oauth2.ForceTLS(forceTLS),
