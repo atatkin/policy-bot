@@ -72,12 +72,14 @@ func (h *SimulateAPIStatus) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx, logger = h.PreparePRContext(ctx, installation.ID, pr)
-	result, err := h.getApprovalResult(ctx, installation, pull.Locator{
+	options := getSimulatedOptions(r)
+
+	result, err := h.getSimulatedResult(ctx, installation, pull.Locator{
 		Owner:  owner,
 		Repo:   repo,
 		Number: number,
 		Value:  pr,
-	}, getSimulatedOptions(r))
+	}, options)
 
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to get approval result for pull request")

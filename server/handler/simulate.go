@@ -38,24 +38,7 @@ type Simulate struct {
 	Base
 }
 
-func getSimulatedOptions(r *http.Request) simulated.Options {
-	var options simulated.Options
-	if r.URL.Query().Has(ignoreParam) {
-		options.Ignore = r.URL.Query().Get(ignoreParam)
-	}
-
-	if r.URL.Query().Has(commentParam) {
-		options.AddApprovalComment = r.URL.Query().Get(commentParam)
-	}
-
-	if r.URL.Query().Has(reviewParam) {
-		options.AddApprovalReview = r.URL.Query().Get(reviewParam)
-	}
-
-	return options
-}
-
-func (h *Simulate) getApprovalResult(ctx context.Context, installation githubapp.Installation, loc pull.Locator, options simulated.Options) (*common.Result, error) {
+func (h *Simulate) getSimulatedResult(ctx context.Context, installation githubapp.Installation, loc pull.Locator, options simulated.Options) (*common.Result, error) {
 	evalCtx, err := h.NewEvalContext(ctx, installation.ID, loc)
 	switch {
 	case err != nil:
@@ -80,4 +63,21 @@ func (h *Simulate) getApprovalResult(ctx context.Context, installation githubapp
 	}
 
 	return &result, nil
+}
+
+func getSimulatedOptions(r *http.Request) simulated.Options {
+	var options simulated.Options
+	if r.URL.Query().Has(ignoreParam) {
+		options.Ignore = r.URL.Query().Get(ignoreParam)
+	}
+
+	if r.URL.Query().Has(commentParam) {
+		options.AddApprovalComment = r.URL.Query().Get(commentParam)
+	}
+
+	if r.URL.Query().Has(reviewParam) {
+		options.AddApprovalReview = r.URL.Query().Get(reviewParam)
+	}
+
+	return options
 }
