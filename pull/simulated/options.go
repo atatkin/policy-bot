@@ -15,12 +15,15 @@
 package simulated
 
 import (
+	"time"
+
 	"github.com/palantir/policy-bot/pull"
 )
 
 // Options should contain optional data that can be used to modify the results of the methods on the simulated Context.
 type Options struct {
-	IgnoreCommentsFrom []string
+	IgnoreCommentsFrom      []string
+	AddApprovalCommentsFrom []string
 }
 
 func (o *Options) filterIgnoredComments(comments []*pull.Comment) []*pull.Comment {
@@ -43,4 +46,21 @@ func (o *Options) filterIgnoredComments(comments []*pull.Comment) []*pull.Commen
 	}
 
 	return filteredComments
+}
+
+func (o *Options) addApprovalComments(comments []*pull.Comment) []*pull.Comment {
+	if len(o.AddApprovalCommentsFrom) <= 0 {
+		return comments
+	}
+
+	for _, author := range o.AddApprovalCommentsFrom {
+		comments = append(comments, &pull.Comment{
+			CreatedAt:    time.Now(),
+			LastEditedAt: time.Now(),
+			Author:       author,
+			Body:         ":+1:",
+		})
+	}
+
+	return comments
 }

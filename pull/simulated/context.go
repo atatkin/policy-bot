@@ -32,5 +32,6 @@ func (c *Context) Comments() ([]*pull.Comment, error) {
 	}
 
 	comments = c.options.filterIgnoredComments(comments)
+	comments = c.options.addApprovalComments(comments)
 	return comments, nil
 }

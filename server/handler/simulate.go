@@ -35,8 +35,12 @@ type Simulate struct {
 
 func getSimulatedOptions(r *http.Request) simulated.Options {
 	var options simulated.Options
-	if r.URL.Query().Has("ignore") {
-		options.IgnoreCommentsFrom = strings.Split(r.URL.Query().Get("ignore"), ",")
+	if r.URL.Query().Has("ignore_comments") {
+		options.IgnoreCommentsFrom = strings.Split(r.URL.Query().Get("ignore_comments"), ",")
+	}
+
+	if r.URL.Query().Has("add_comments") {
+		options.AddApprovalCommentsFrom = strings.Split(r.URL.Query().Get("add_comments"), ",")
 	}
 
 	return options

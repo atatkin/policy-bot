@@ -58,6 +58,34 @@ func TestComments(t *testing.T) {
 				IgnoreCommentsFrom: []string{"iignore", "rrandom"},
 			},
 		},
+		"add new comment by sperson": {
+			Comments: []*pull.Comment{
+				{Author: "rrandom"},
+				{Author: "iignore"},
+			},
+			Options: Options{
+				AddApprovalCommentsFrom: []string{"sperson"},
+			},
+			FilteredComments: []*pull.Comment{
+				{Author: "rrandom"},
+				{Author: "iignore"},
+				{Author: "sperson"},
+			},
+		},
+		"add new comment by sperson and ignore one from iignore": {
+			Comments: []*pull.Comment{
+				{Author: "rrandom"},
+				{Author: "iignore"},
+			},
+			Options: Options{
+				IgnoreCommentsFrom:      []string{"iignore"},
+				AddApprovalCommentsFrom: []string{"sperson"},
+			},
+			FilteredComments: []*pull.Comment{
+				{Author: "rrandom"},
+				{Author: "sperson"},
+			},
+		},
 	}
 
 	for message, test := range tests {
@@ -68,8 +96,17 @@ func TestComments(t *testing.T) {
 
 		comments, err := context.Comments()
 		assert.NoError(t, err, test, message)
-		assert.Equal(t, test.FilteredComments, comments, message)
+		assert.Equal(t, authors(test.FilteredComments), authors(comments), message)
 	}
+}
+
+func authors(comments []*pull.Comment) []string {
+	var authors []string
+	for _, c := range comments {
+		authors = append(authors, c.Author)
+	}
+
+	return authors
 }
 
 type testPullContext struct {
