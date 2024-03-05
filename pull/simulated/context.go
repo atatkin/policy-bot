@@ -60,3 +60,12 @@ func (c *Context) Reviews() ([]*pull.Review, error) {
 
 	return reviews, nil
 }
+
+func (c *Context) Branches() (string, string) {
+	base, head := c.Context.Branches()
+	if c.options.BaseBranch != "" {
+		return c.options.BaseBranch, head
+	}
+
+	return base, head
+}

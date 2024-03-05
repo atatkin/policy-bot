@@ -30,6 +30,7 @@ const (
 	ignoreParam  = "ignore"
 	commentParam = "comment"
 	reviewParam  = "review"
+	branchParam  = "branch"
 )
 
 // Simulate provides a baseline for handlers to perform simulated pull request evaluations and
@@ -113,6 +114,10 @@ func getSimulatedOptions(r *http.Request) simulated.Options {
 
 	if r.URL.Query().Has(reviewParam) {
 		options.AddApprovalReview = r.URL.Query().Get(reviewParam)
+	}
+
+	if r.URL.Query().Has(branchParam) {
+		options.BaseBranch = r.URL.Query().Get(branchParam)
 	}
 
 	return options

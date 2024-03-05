@@ -25,6 +25,7 @@ type Options struct {
 	Ignore             string
 	AddApprovalComment string
 	AddApprovalReview  string
+	BaseBranch         string
 }
 
 func (o *Options) filterIgnoredComments(comments []*pull.Comment) []*pull.Comment {
