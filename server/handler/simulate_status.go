@@ -12,7 +12,7 @@ type SimulateStatus struct {
 	Simulate
 }
 
-type SimulatedStatusResponse struct {
+type SimulateStatusResponse struct {
 	Status      string `json:"status"`
 	Description string `json:"description"`
 }
@@ -20,7 +20,7 @@ type SimulatedStatusResponse struct {
 func (h *SimulateStatus) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	logger := *zerolog.Ctx(ctx)
-	var response SimulatedStatusResponse
+	var response SimulateStatusResponse
 
 	owner, repo, number, ok := parsePullParams(r)
 	if !ok {

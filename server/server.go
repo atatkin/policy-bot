@@ -34,6 +34,7 @@ import (
 	"github.com/palantir/go-githubapp/oauth2"
 	"github.com/palantir/policy-bot/pull"
 	"github.com/palantir/policy-bot/server/handler"
+	"github.com/palantir/policy-bot/server/middleware"
 	"github.com/palantir/policy-bot/version"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -214,12 +215,9 @@ func New(c *Config) (*Server, error) {
 	// webhook route
 	mux.Handle(pat.Post(githubapp.DefaultWebhookRoute), dispatcher)
 
-	simulateHandler := handler.Simulate{Base: basePolicyHandler}
-
 	// additional API routes
 	mux.Handle(pat.Get("/api/health"), handler.Health())
 	mux.Handle(pat.Put("/api/validate"), handler.Validate())
-	mux.Handle(pat.Get("/api/simulate/:owner/:repo/:number/status"), &handler.SimulateStatus{Simulate: simulateHandler})
 	mux.Handle(pat.Get(oauth2.DefaultRoute), oauth2.NewHandler(
 		oauth2.GetConfig(c.Github, nil),
 		oauth2.ForceTLS(forceTLS),
@@ -251,6 +249,16 @@ func New(c *Config) (*Server, error) {
 		Details: detailsHandler,
 	}))
 	mux.Handle(pat.New("/details/*"), details)
+
+	simulateHandler := handler.Simulate{Base: basePolicyHandler}
+
+	// simulateAPI routes requires API auth
+	simulateAPI := goji.SubMux()
+	simulateAPI.Use(middleware.APIAuth(&middleware.GitHubTokenResolver{ClientCreator: cc}))
+	simulateAPI.Handle(pat.Get("/:owner/:repo/:number/status"), &handler.SimulateStatus{
+		Simulate: simulateHandler,
+	})
+	mux.Handle(pat.New("/api/simulate/*"), simulateAPI)
 
 	return &Server{
 		config: c,
