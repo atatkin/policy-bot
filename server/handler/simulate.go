@@ -17,34 +17,35 @@ package handler
 import (
 	"context"
 	"net/http"
+	"strings"
 
 	"github.com/palantir/go-baseapp/baseapp"
 	"github.com/palantir/go-githubapp/githubapp"
 	"github.com/palantir/policy-bot/policy"
 	"github.com/palantir/policy-bot/policy/common"
+	"github.com/palantir/policy-bot/policy/simulator"
 	"github.com/palantir/policy-bot/pull"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 )
 
-const ignoreBotsParam = "ignorebots"
+const (
+	paramIgnoreCommentsFrom = "ignore_comments_from"
+)
 
-// ApprovalStatus evaluates the approval status for a pull request based on it's current state. Unlike the standard
-// GitHub event handlers, the status in this case is returned and not written back to the pull request. If an
-// "ignorebots" query param is included, approval comments from bots will not be considered.
-type ApprovalStatus struct {
+type Simulate struct {
 	Base
 }
 
-type ApprovalStatusResponse struct {
+type SimulatedResultResponse struct {
 	Status      string `json:"status"`
 	Description string `json:"description"`
 }
 
-func (h *ApprovalStatus) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *Simulate) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	logger := *zerolog.Ctx(ctx)
-	var response ApprovalStatusResponse
+	var response SimulatedResultResponse
 
 	owner, repo, number, ok := parsePullParams(r)
 	if !ok {
@@ -79,16 +80,13 @@ func (h *ApprovalStatus) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// if ?ignorebots=true is included in the query, approval comments from bots, such as policy-bot be ignored
-	ignoreCommentsFromBots := r.URL.Query().Has(ignoreBotsParam) && r.URL.Query().Get(ignoreBotsParam) == "true"
-
 	ctx, logger = h.PreparePRContext(ctx, installation.ID, pr)
 	result, err := h.getApprovalResult(ctx, installation, pull.Locator{
 		Owner:  owner,
 		Repo:   repo,
 		Number: number,
 		Value:  pr,
-	}, ignoreCommentsFromBots)
+	}, h.getOptionsFromQuery(r))
 
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to get approval result for pull request")
@@ -101,7 +99,16 @@ func (h *ApprovalStatus) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	baseapp.WriteJSON(w, http.StatusOK, &response)
 }
 
-func (h *ApprovalStatus) getApprovalResult(ctx context.Context, installation githubapp.Installation, loc pull.Locator, ignoreBots bool) (*common.Result, error) {
+func (h *Simulate) getOptionsFromQuery(r *http.Request) *simulator.Options {
+	var options simulator.Options
+	if r.URL.Query().Has(paramIgnoreCommentsFrom) {
+		options.IgnoreCommentsFrom = strings.Split(r.URL.Query().Get(paramIgnoreCommentsFrom), ",")
+	}
+
+	return &options
+}
+
+func (h *Simulate) getApprovalResult(ctx context.Context, installation githubapp.Installation, loc pull.Locator, options *simulator.Options) (*common.Result, error) {
 	evalCtx, err := h.NewEvalContext(ctx, installation.ID, loc)
 	switch {
 	case err != nil:
@@ -113,21 +120,14 @@ func (h *ApprovalStatus) getApprovalResult(ctx context.Context, installation git
 	case evalCtx.Config.Config == nil:
 		return nil, errors.New("no policy file found in repo")
 	}
-
-	// if an ignorebots query param is included, all approvals from bots are ignored in the evaluation
-	// regardless of if the original rules have that option set or not.
-	if ignoreBots {
-		for _, rule := range evalCtx.Config.Config.ApprovalRules {
-			rule.Options.IgnoreBotComments = true
-		}
-	}
+	simulatedCtx := simulator.NewSimulatedContext(evalCtx.PullContext, options)
 
 	evaluator, err := policy.ParsePolicy(evalCtx.Config.Config)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get policy evaluator")
 	}
 
-	result := evaluator.Evaluate(ctx, evalCtx.PullContext)
+	result := evaluator.Evaluate(ctx, simulatedCtx)
 	if result.Error != nil {
 		return nil, errors.Wrapf(err, "error evaluating policy in %s: %s", evalCtx.Config.Source, evalCtx.Config.Path)
 	}

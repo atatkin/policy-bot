@@ -28,8 +28,6 @@ import (
 	"github.com/rs/zerolog"
 )
 
-const botSuffix = "[bot]"
-
 type Rule struct {
 	Name        string               `yaml:"name"`
 	Description string               `yaml:"description"`
@@ -44,7 +42,6 @@ type Options struct {
 	AllowNonAuthorContributor bool `yaml:"allow_non_author_contributor"`
 	InvalidateOnPush          bool `yaml:"invalidate_on_push"`
 
-	IgnoreBotComments    bool          `yaml:"ignore_bot_comments"`
 	IgnoreEditedComments bool          `yaml:"ignore_edited_comments"`
 	IgnoreUpdateMerges   bool          `yaml:"ignore_update_merges"`
 	IgnoreCommitsBy      common.Actors `yaml:"ignore_commits_by"`
@@ -276,18 +273,9 @@ func (r *Rule) FilteredCandidates(ctx context.Context, prctx pull.Context) ([]*c
 		}
 	}
 
-	var botDismissals []*common.Dismissal
-	if r.Options.IgnoreBotComments {
-		candidates, botDismissals, err = r.filterBotCandidates(ctx, prctx, candidates)
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-
 	var dismissals []*common.Dismissal
 	dismissals = append(dismissals, editDismissals...)
 	dismissals = append(dismissals, pushDismissals...)
-	dismissals = append(dismissals, botDismissals...)
 
 	return candidates, dismissals, nil
 }
@@ -351,30 +339,6 @@ func (r *Rule) filterInvalidCandidates(ctx context.Context, prctx pull.Context, 
 		"discarded %d candidates invalidated by push of %s on or before %s",
 		len(dismissed), sha, lastPushedAt.Format(time.RFC3339),
 	)
-
-	return allowed, dismissed, nil
-}
-
-func (r *Rule) filterBotCandidates(ctx context.Context, prctx pull.Context, candidates []*common.Candidate) ([]*common.Candidate, []*common.Dismissal, error) {
-	var allowed []*common.Candidate
-	var dismissed []*common.Dismissal
-
-	for _, c := range candidates {
-		if strings.HasSuffix(c.User, botSuffix) {
-			dismissed = append(dismissed, &common.Dismissal{
-				Candidate: c,
-				Reason:    fmt.Sprintf("Ignored comment by bot: %s", c.User),
-			})
-
-			continue
-		}
-
-		allowed = append(allowed, c)
-	}
-
-	if len(dismissed) > 0 {
-		zerolog.Ctx(ctx).Debug().Msgf("discarded %d candidates due to being comments by bots", len(dismissed))
-	}
 
 	return allowed, dismissed, nil
 }
