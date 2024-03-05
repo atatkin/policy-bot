@@ -49,10 +49,6 @@ func (o *Options) filterIgnoredComments(comments []*pull.Comment) []*pull.Commen
 }
 
 func (o *Options) addApprovalComments(comments []*pull.Comment) []*pull.Comment {
-	if len(o.AddApprovalCommentsFrom) <= 0 {
-		return comments
-	}
-
 	for _, author := range o.AddApprovalCommentsFrom {
 		comments = append(comments, &pull.Comment{
 			CreatedAt:    time.Now(),
