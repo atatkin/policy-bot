@@ -14,7 +14,9 @@
 
 package simulated
 
-import "github.com/palantir/policy-bot/pull"
+import (
+	"github.com/palantir/policy-bot/pull"
+)
 
 type Context struct {
 	pull.Context
