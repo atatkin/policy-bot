@@ -39,7 +39,7 @@ type Simulate struct {
 }
 
 func (h *Simulate) getSimulatedResult(ctx context.Context, installation githubapp.Installation, loc pull.Locator, options simulated.Options) (*common.Result, error) {
-	evalCtx, err := h.NewEvalContext(ctx, installation.ID, loc)
+	evalCtx, err := h.newSimulatedEvalContext(ctx, installation.ID, loc, options)
 	switch {
 	case err != nil:
 		return nil, errors.Wrap(err, "failed to generate eval context")
@@ -56,13 +56,49 @@ func (h *Simulate) getSimulatedResult(ctx context.Context, installation githubap
 		return nil, errors.Wrap(err, "failed to get policy evaluator")
 	}
 
-	simulatedCtx := simulated.NewContext(evalCtx.PullContext, options)
-	result := evaluator.Evaluate(ctx, simulatedCtx)
+	result := evaluator.Evaluate(ctx, evalCtx.PullContext)
 	if result.Error != nil {
 		return nil, errors.Wrapf(err, "error evaluating policy in %s: %s", evalCtx.Config.Source, evalCtx.Config.Path)
 	}
 
 	return &result, nil
+}
+
+func (h *Simulate) newSimulatedEvalContext(ctx context.Context, installationID int64, loc pull.Locator, options simulated.Options) (*EvalContext, error) {
+	client, err := h.NewInstallationClient(installationID)
+	if err != nil {
+		return nil, err
+	}
+
+	v4client, err := h.NewInstallationV4Client(installationID)
+	if err != nil {
+		return nil, err
+	}
+
+	mbrCtx := NewCrossOrgMembershipContext(ctx, client, loc.Owner, h.Installations, h.ClientCreator)
+	prctx, err := pull.NewGitHubContext(ctx, mbrCtx, h.GlobalCache, client, v4client, loc)
+	if err != nil {
+		return nil, err
+	}
+
+	simulatedPRCtx := simulated.NewContext(prctx, options)
+
+	baseBranch, _ := simulatedPRCtx.Branches()
+	owner := simulatedPRCtx.RepositoryOwner()
+	repository := simulatedPRCtx.RepositoryName()
+
+	fetchedConfig := h.ConfigFetcher.ConfigForRepositoryBranch(ctx, client, owner, repository, baseBranch)
+
+	return &EvalContext{
+		Client:   client,
+		V4Client: v4client,
+
+		Options:   h.PullOpts,
+		PublicURL: h.BaseConfig.PublicURL,
+
+		PullContext: simulatedPRCtx,
+		Config:      fetchedConfig,
+	}, nil
 }
 
 func getSimulatedOptions(r *http.Request) simulated.Options {
