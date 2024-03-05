@@ -8,19 +8,21 @@ import (
 	"github.com/rs/zerolog"
 )
 
-type SimulateStatus struct {
+// SimulateAPIStatus returns a SimulateAPIStatusResponse object as json representing a simulated run of policybot
+// on a provided pull request. Accepts query params which may modify the result.
+type SimulateAPIStatus struct {
 	Simulate
 }
 
-type SimulateStatusResponse struct {
+type SimulateAPIStatusResponse struct {
 	Status      string `json:"status"`
 	Description string `json:"description"`
 }
 
-func (h *SimulateStatus) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *SimulateAPIStatus) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	logger := *zerolog.Ctx(ctx)
-	var response SimulateStatusResponse
+	var response SimulateAPIStatusResponse
 
 	owner, repo, number, ok := parsePullParams(r)
 	if !ok {
@@ -61,7 +63,7 @@ func (h *SimulateStatus) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Repo:   repo,
 		Number: number,
 		Value:  pr,
-	}, h.getOptionsFromQuery(r))
+	}, getSimulatedOptions(r))
 
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to get approval result for pull request")

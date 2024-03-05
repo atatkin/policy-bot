@@ -27,18 +27,16 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
-	paramIgnoreCommentsFrom = "ignore_comments_from"
-)
-
+// Simulate provides a baseline for handlers to perform simulated pull request evaluations and
+// either return the result or display it in the ui.
 type Simulate struct {
 	Base
 }
 
-func (h *Simulate) getOptionsFromQuery(r *http.Request) *simulated.Options {
+func getSimulatedOptions(r *http.Request) *simulated.Options {
 	var options simulated.Options
-	if r.URL.Query().Has(paramIgnoreCommentsFrom) {
-		options.IgnoreCommentsFrom = strings.Split(r.URL.Query().Get(paramIgnoreCommentsFrom), ",")
+	if r.URL.Query().Has("ignore") {
+		options.IgnoreCommentsFrom = strings.Split(r.URL.Query().Get("ignore"), ",")
 	}
 
 	return &options
