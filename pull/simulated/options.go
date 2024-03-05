@@ -1,9 +1,10 @@
-package simulator
+package simulated
 
 import (
 	"github.com/palantir/policy-bot/pull"
 )
 
+// Options should contain optional data that can be used to modify the results of the methods on the simulated Context.
 type Options struct {
 	IgnoreCommentsFrom []string
 }
