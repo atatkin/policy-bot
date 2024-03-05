@@ -33,8 +33,14 @@ func (c *Context) Comments() ([]*pull.Comment, error) {
 		return nil, err
 	}
 
-	comments = c.options.filterIgnoredComments(comments)
-	comments = c.options.addApprovalComment(comments)
+	if c.options.Ignore != "" {
+		comments = c.options.filterIgnoredComments(comments)
+	}
+
+	if c.options.AddApprovalComment != "" {
+		comments = c.options.addApprovalComment(comments)
+	}
+
 	return comments, nil
 }
 
@@ -44,7 +50,13 @@ func (c *Context) Reviews() ([]*pull.Review, error) {
 		return nil, err
 	}
 
-	reviews = c.options.filterIgnoredReviews(reviews)
-	reviews = c.options.addApprovalReview(reviews)
+	if c.options.Ignore != "" {
+		reviews = c.options.filterIgnoredReviews(reviews)
+	}
+
+	if c.options.AddApprovalReview != "" {
+		reviews = c.options.addApprovalReview(reviews)
+	}
+
 	return reviews, nil
 }

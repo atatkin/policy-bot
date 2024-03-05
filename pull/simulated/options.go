@@ -28,10 +28,6 @@ type Options struct {
 }
 
 func (o *Options) filterIgnoredComments(comments []*pull.Comment) []*pull.Comment {
-	if o.Ignore == "" {
-		return comments
-	}
-
 	var filteredComments []*pull.Comment
 	for _, comment := range comments {
 		if comment.Author == o.Ignore {
@@ -45,10 +41,6 @@ func (o *Options) filterIgnoredComments(comments []*pull.Comment) []*pull.Commen
 }
 
 func (o *Options) filterIgnoredReviews(reviews []*pull.Review) []*pull.Review {
-	if o.Ignore == "" {
-		return reviews
-	}
-
 	var filteredReviews []*pull.Review
 	for _, review := range reviews {
 		if review.Author == o.Ignore {
@@ -62,10 +54,6 @@ func (o *Options) filterIgnoredReviews(reviews []*pull.Review) []*pull.Review {
 }
 
 func (o *Options) addApprovalComment(comments []*pull.Comment) []*pull.Comment {
-	if o.AddApprovalComment == "" {
-		return comments
-	}
-
 	return append(comments, &pull.Comment{
 		CreatedAt:    time.Now(),
 		LastEditedAt: time.Now(),
@@ -75,10 +63,6 @@ func (o *Options) addApprovalComment(comments []*pull.Comment) []*pull.Comment {
 }
 
 func (o *Options) addApprovalReview(reviews []*pull.Review) []*pull.Review {
-	if o.AddApprovalReview == "" {
-		return reviews
-	}
-
 	return append(reviews, &pull.Review{
 		CreatedAt:    time.Now(),
 		LastEditedAt: time.Now(),
