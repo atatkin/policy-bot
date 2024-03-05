@@ -34,6 +34,17 @@ func (c *Context) Comments() ([]*pull.Comment, error) {
 	}
 
 	comments = c.options.filterIgnoredComments(comments)
-	comments = c.options.addApprovalComments(comments)
+	comments = c.options.addApprovalComment(comments)
 	return comments, nil
+}
+
+func (c *Context) Reviews() ([]*pull.Review, error) {
+	reviews, err := c.Context.Reviews()
+	if err != nil {
+		return nil, err
+	}
+
+	reviews = c.options.filterIgnoredReviews(reviews)
+	reviews = c.options.addApprovalReview(reviews)
+	return reviews, nil
 }

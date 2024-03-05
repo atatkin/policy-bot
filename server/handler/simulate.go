@@ -17,7 +17,6 @@ package handler
 import (
 	"context"
 	"net/http"
-	"strings"
 
 	"github.com/palantir/go-githubapp/githubapp"
 	"github.com/palantir/policy-bot/policy"
@@ -28,8 +27,9 @@ import (
 )
 
 const (
-	ignoreCommentsParam = "ignore_comments"
-	addCommentsParam    = "add_comments"
+	ignoreParam  = "ignore"
+	commentParam = "comment"
+	reviewParam  = "review"
 )
 
 // Simulate provides a baseline for handlers to perform simulated pull request evaluations and
@@ -40,12 +40,16 @@ type Simulate struct {
 
 func getSimulatedOptions(r *http.Request) simulated.Options {
 	var options simulated.Options
-	if r.URL.Query().Has(ignoreCommentsParam) {
-		options.IgnoreCommentsFrom = strings.Split(r.URL.Query().Get(ignoreCommentsParam), ",")
+	if r.URL.Query().Has(ignoreParam) {
+		options.Ignore = r.URL.Query().Get(ignoreParam)
 	}
 
-	if r.URL.Query().Has(addCommentsParam) {
-		options.AddApprovalCommentsFrom = strings.Split(r.URL.Query().Get(addCommentsParam), ",")
+	if r.URL.Query().Has(commentParam) {
+		options.AddApprovalComment = r.URL.Query().Get(commentParam)
+	}
+
+	if r.URL.Query().Has(reviewParam) {
+		options.AddApprovalReview = r.URL.Query().Get(reviewParam)
 	}
 
 	return options

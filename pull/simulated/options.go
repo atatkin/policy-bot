@@ -22,23 +22,19 @@ import (
 
 // Options should contain optional data that can be used to modify the results of the methods on the simulated Context.
 type Options struct {
-	IgnoreCommentsFrom      []string
-	AddApprovalCommentsFrom []string
+	Ignore             string
+	AddApprovalComment string
+	AddApprovalReview  string
 }
 
 func (o *Options) filterIgnoredComments(comments []*pull.Comment) []*pull.Comment {
-	if len(o.IgnoreCommentsFrom) <= 0 {
+	if o.Ignore == "" {
 		return comments
-	}
-
-	ignoreCommentFromMap := make(map[string]bool)
-	for _, name := range o.IgnoreCommentsFrom {
-		ignoreCommentFromMap[name] = true
 	}
 
 	var filteredComments []*pull.Comment
 	for _, comment := range comments {
-		if ignoreCommentFromMap[comment.Author] {
+		if comment.Author == o.Ignore {
 			continue
 		}
 
@@ -48,15 +44,45 @@ func (o *Options) filterIgnoredComments(comments []*pull.Comment) []*pull.Commen
 	return filteredComments
 }
 
-func (o *Options) addApprovalComments(comments []*pull.Comment) []*pull.Comment {
-	for _, author := range o.AddApprovalCommentsFrom {
-		comments = append(comments, &pull.Comment{
-			CreatedAt:    time.Now(),
-			LastEditedAt: time.Now(),
-			Author:       author,
-			Body:         ":+1:",
-		})
+func (o *Options) filterIgnoredReviews(reviews []*pull.Review) []*pull.Review {
+	if o.Ignore == "" {
+		return reviews
 	}
 
-	return comments
+	var filteredReviews []*pull.Review
+	for _, review := range reviews {
+		if review.Author == o.Ignore {
+			continue
+		}
+
+		filteredReviews = append(filteredReviews, review)
+	}
+
+	return filteredReviews
+}
+
+func (o *Options) addApprovalComment(comments []*pull.Comment) []*pull.Comment {
+	if o.AddApprovalComment == "" {
+		return comments
+	}
+
+	return append(comments, &pull.Comment{
+		CreatedAt:    time.Now(),
+		LastEditedAt: time.Now(),
+		Author:       o.AddApprovalComment,
+		Body:         ":+1:",
+	})
+}
+
+func (o *Options) addApprovalReview(reviews []*pull.Review) []*pull.Review {
+	if o.AddApprovalReview == "" {
+		return reviews
+	}
+
+	return append(reviews, &pull.Review{
+		CreatedAt:    time.Now(),
+		LastEditedAt: time.Now(),
+		Author:       o.AddApprovalReview,
+		State:        pull.ReviewApproved,
+	})
 }

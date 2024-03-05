@@ -25,18 +25,18 @@ func TestComments(t *testing.T) {
 	tests := map[string]struct {
 		Comments         []*pull.Comment
 		Options          Options
-		FilteredComments []*pull.Comment
+		ExpectedComments []*pull.Comment
 	}{
 		"ignore comments by iignore": {
 			Comments: []*pull.Comment{
 				{Author: "rrandom"},
 				{Author: "iignore"},
 			},
-			FilteredComments: []*pull.Comment{
+			ExpectedComments: []*pull.Comment{
 				{Author: "rrandom"},
 			},
 			Options: Options{
-				IgnoreCommentsFrom: []string{"iignore"},
+				Ignore: "iignore",
 			},
 		},
 		"do not ignore any comments": {
@@ -44,18 +44,9 @@ func TestComments(t *testing.T) {
 				{Author: "rrandom"},
 				{Author: "iignore"},
 			},
-			FilteredComments: []*pull.Comment{
+			ExpectedComments: []*pull.Comment{
 				{Author: "rrandom"},
 				{Author: "iignore"},
-			},
-		},
-		"ignore all comments": {
-			Comments: []*pull.Comment{
-				{Author: "rrandom"},
-				{Author: "iignore"},
-			},
-			Options: Options{
-				IgnoreCommentsFrom: []string{"iignore", "rrandom"},
 			},
 		},
 		"add new comment by sperson": {
@@ -64,9 +55,9 @@ func TestComments(t *testing.T) {
 				{Author: "iignore"},
 			},
 			Options: Options{
-				AddApprovalCommentsFrom: []string{"sperson"},
+				AddApprovalComment: "sperson",
 			},
-			FilteredComments: []*pull.Comment{
+			ExpectedComments: []*pull.Comment{
 				{Author: "rrandom"},
 				{Author: "iignore"},
 				{Author: "sperson"},
@@ -78,10 +69,10 @@ func TestComments(t *testing.T) {
 				{Author: "iignore"},
 			},
 			Options: Options{
-				IgnoreCommentsFrom:      []string{"iignore"},
-				AddApprovalCommentsFrom: []string{"sperson"},
+				Ignore:             "iignore",
+				AddApprovalComment: "sperson",
 			},
-			FilteredComments: []*pull.Comment{
+			ExpectedComments: []*pull.Comment{
 				{Author: "rrandom"},
 				{Author: "sperson"},
 			},
@@ -96,13 +87,92 @@ func TestComments(t *testing.T) {
 
 		comments, err := context.Comments()
 		assert.NoError(t, err, test, message)
-		assert.Equal(t, authors(test.FilteredComments), authors(comments), message)
+		assert.Equal(t, commentAuthors(test.ExpectedComments), commentAuthors(comments), message)
 	}
 }
 
-func authors(comments []*pull.Comment) []string {
+func TestReviews(t *testing.T) {
+	tests := map[string]struct {
+		Reviews         []*pull.Review
+		Options         Options
+		ExpectedReviews []*pull.Review
+	}{
+		"ignore reviews by iignore": {
+			Reviews: []*pull.Review{
+				{Author: "rrandom"},
+				{Author: "iignore"},
+			},
+			ExpectedReviews: []*pull.Review{
+				{Author: "rrandom"},
+			},
+			Options: Options{
+				Ignore: "iignore",
+			},
+		},
+		"do not ignore any reviews": {
+			Reviews: []*pull.Review{
+				{Author: "rrandom"},
+				{Author: "iignore"},
+			},
+			ExpectedReviews: []*pull.Review{
+				{Author: "rrandom"},
+				{Author: "iignore"},
+			},
+		},
+		"add new review by sperson": {
+			Reviews: []*pull.Review{
+				{Author: "rrandom"},
+				{Author: "iignore"},
+			},
+			Options: Options{
+				AddApprovalReview: "sperson",
+			},
+			ExpectedReviews: []*pull.Review{
+				{Author: "rrandom"},
+				{Author: "iignore"},
+				{Author: "sperson"},
+			},
+		},
+		"add new review by sperson and ignore one from iignore": {
+			Reviews: []*pull.Review{
+				{Author: "rrandom"},
+				{Author: "iignore"},
+			},
+			Options: Options{
+				Ignore:            "iignore",
+				AddApprovalReview: "sperson",
+			},
+			ExpectedReviews: []*pull.Review{
+				{Author: "rrandom"},
+				{Author: "sperson"},
+			},
+		},
+	}
+
+	for message, test := range tests {
+		context := Context{
+			Context: &testPullContext{reviews: test.Reviews},
+			options: test.Options,
+		}
+
+		reviews, err := context.Reviews()
+		assert.NoError(t, err, test, message)
+		assert.Equal(t, reviewAuthors(test.ExpectedReviews), reviewAuthors(reviews), message)
+	}
+}
+
+func commentAuthors(comments []*pull.Comment) []string {
 	var authors []string
 	for _, c := range comments {
+		authors = append(authors, c.Author)
+	}
+
+	return authors
+}
+
+func reviewAuthors(reviews []*pull.Review) []string {
+	var authors []string
+	for _, c := range reviews {
 		authors = append(authors, c.Author)
 	}
 
@@ -112,8 +182,13 @@ func authors(comments []*pull.Comment) []string {
 type testPullContext struct {
 	pull.Context
 	comments []*pull.Comment
+	reviews  []*pull.Review
 }
 
 func (c *testPullContext) Comments() ([]*pull.Comment, error) {
 	return c.comments, nil
+}
+
+func (c *testPullContext) Reviews() ([]*pull.Review, error) {
+	return c.reviews, nil
 }
