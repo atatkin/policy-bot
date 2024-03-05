@@ -33,16 +33,16 @@ type Simulate struct {
 	Base
 }
 
-func getSimulatedOptions(r *http.Request) *simulated.Options {
+func getSimulatedOptions(r *http.Request) simulated.Options {
 	var options simulated.Options
 	if r.URL.Query().Has("ignore") {
 		options.IgnoreCommentsFrom = strings.Split(r.URL.Query().Get("ignore"), ",")
 	}
 
-	return &options
+	return options
 }
 
-func (h *Simulate) getApprovalResult(ctx context.Context, installation githubapp.Installation, loc pull.Locator, options *simulated.Options) (*common.Result, error) {
+func (h *Simulate) getApprovalResult(ctx context.Context, installation githubapp.Installation, loc pull.Locator, options simulated.Options) (*common.Result, error) {
 	evalCtx, err := h.NewEvalContext(ctx, installation.ID, loc)
 	switch {
 	case err != nil:

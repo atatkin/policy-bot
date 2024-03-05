@@ -18,10 +18,10 @@ import "github.com/palantir/policy-bot/pull"
 
 type Context struct {
 	pull.Context
-	options *Options
+	options Options
 }
 
-func NewContext(pullContext pull.Context, options *Options) *Context {
+func NewContext(pullContext pull.Context, options Options) *Context {
 	return &Context{Context: pullContext, options: options}
 }
 
