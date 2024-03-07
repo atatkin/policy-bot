@@ -15,15 +15,11 @@
 package handler
 
 import (
-	"context"
 	"net/http"
 	"strings"
 
-	"github.com/google/go-github/v58/github"
 	"github.com/palantir/go-baseapp/baseapp"
 	"github.com/palantir/policy-bot/pull"
-	"github.com/palantir/policy-bot/server/middleware"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 )
 
@@ -69,19 +65,6 @@ func (h *SimulateStatus) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hasPermission, err := checkAPIPermissions(ctx, client, owner, repo)
-	if err != nil {
-		logger.Error().Err(err).Msg("failed to check if user has permissions to repo")
-		writeAPIError(w, http.StatusInternalServerError)
-		return
-	}
-
-	if !hasPermission {
-		logger.Error().Err(err).Msg("user does not have permissions to repo")
-		writeAPIError(w, http.StatusForbidden, "you do not have permission to view this repo or it does not exist")
-		return
-	}
-
 	pr, _, err := client.PullRequests.Get(ctx, owner, repo, number)
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to get pr")
@@ -113,24 +96,6 @@ func (h *SimulateStatus) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	response.Status = result.Status.String()
 	response.Description = result.StatusDescription
 	baseapp.WriteJSON(w, http.StatusOK, &response)
-}
-
-func checkAPIPermissions(ctx context.Context, client *github.Client, owner, repo string) (bool, error) {
-	username, err := middleware.GetUser(ctx)
-	if err != nil {
-		return false, errors.Wrap(err, "failed to get user from context")
-	}
-
-	level, _, err := client.Repositories.GetPermissionLevel(ctx, owner, repo, username)
-	if err != nil {
-		if isNotFound(err) {
-			return false, nil
-		}
-
-		return false, errors.Wrap(err, "failed to get user permission level")
-	}
-
-	return level.GetPermission() != "none", nil
 }
 
 func writeAPIError(w http.ResponseWriter, code int, message ...string) {

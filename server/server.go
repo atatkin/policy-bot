@@ -251,14 +251,14 @@ func New(c *Config) (*Server, error) {
 	mux.Handle(pat.New("/details/*"), details)
 
 	simulateHandler := handler.Simulate{Base: basePolicyHandler}
-
-	// simulateAPI routes requires API auth
 	simulateAPI := goji.SubMux()
-	simulateAPI.Use(middleware.APIAuth(&middleware.GitHubTokenResolver{ClientCreator: cc}))
-	simulateAPI.Handle(pat.Get("/:owner/:repo/:number/status"), &handler.SimulateStatus{
+	simulateAPI.Use(middleware.RepoAuth(&middleware.GitHubTokenValidator{ClientCreator: cc}))
+	simulateAPI.Handle(pat.Get("/status"), &handler.SimulateStatus{
 		Simulate: simulateHandler,
 	})
-	mux.Handle(pat.New("/api/simulate/*"), simulateAPI)
+
+	// all routes on the simulateAPI need to include the 'owner' and 'repo' params
+	mux.Handle(pat.New("/api/simulate/:owner/:repo/:number/*"), simulateAPI)
 
 	return &Server{
 		config: c,
