@@ -255,7 +255,7 @@ func New(c *Config) (*Server, error) {
 	// simulateAPI routes requires API auth
 	simulateAPI := goji.SubMux()
 	simulateAPI.Use(middleware.APIAuth(&middleware.GitHubTokenResolver{ClientCreator: cc}))
-	simulateAPI.Handle(pat.Get("/:owner/:repo/:number/status"), &handler.SimulateAPIStatus{
+	simulateAPI.Handle(pat.Get("/:owner/:repo/:number/status"), &handler.SimulateStatus{
 		Simulate: simulateHandler,
 	})
 	mux.Handle(pat.New("/api/simulate/*"), simulateAPI)

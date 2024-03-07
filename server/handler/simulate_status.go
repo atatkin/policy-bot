@@ -15,47 +15,70 @@
 package handler
 
 import (
+	"context"
 	"net/http"
+	"strings"
 
+	"github.com/google/go-github/v58/github"
 	"github.com/palantir/go-baseapp/baseapp"
 	"github.com/palantir/policy-bot/pull"
+	"github.com/palantir/policy-bot/server/middleware"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 )
 
-// SimulateAPIStatus returns a SimulateAPIStatusResponse object as json representing a simulated run of policybot
+// SimulateStatus returns a SimulateAPIStatusResponse object as json representing a simulated run of policybot
 // on a provided pull request. Accepts query params which may modify the result.
-type SimulateAPIStatus struct {
+type SimulateStatus struct {
 	Simulate
 }
 
-type SimulateAPIStatusResponse struct {
+type SimulateStatusResponse struct {
 	Status      string `json:"status"`
 	Description string `json:"description"`
 }
 
-func (h *SimulateAPIStatus) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+type APIError struct {
+	Status int    `json:"status"`
+	Error  string `json:"error"`
+}
+
+func (h *SimulateStatus) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	logger := *zerolog.Ctx(ctx)
-	var response SimulateAPIStatusResponse
+	var response SimulateStatusResponse
 
 	owner, repo, number, ok := parsePullParams(r)
 	if !ok {
 		logger.Error().Msg("failed to parse pull request parameters from request")
-		baseapp.WriteJSON(w, http.StatusBadRequest, &response)
+		writeAPIError(w, http.StatusBadRequest)
 		return
 	}
 
 	installation, err := h.Installations.GetByOwner(ctx, owner)
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to get installation for org")
-		baseapp.WriteJSON(w, http.StatusNotFound, &response)
+		writeAPIError(w, http.StatusInternalServerError)
 		return
 	}
 
 	client, err := h.ClientCreator.NewInstallationClient(installation.ID)
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to create github client")
-		baseapp.WriteJSON(w, http.StatusInternalServerError, &response)
+		writeAPIError(w, http.StatusInternalServerError)
+		return
+	}
+
+	hasPermission, err := checkAPIPermissions(ctx, client, owner, repo)
+	if err != nil {
+		logger.Error().Err(err).Msg("failed to check if user has permissions to repo")
+		writeAPIError(w, http.StatusInternalServerError)
+		return
+	}
+
+	if !hasPermission {
+		logger.Error().Err(err).Msg("user does not have permissions to repo")
+		writeAPIError(w, http.StatusForbidden, "you do not have permission to view this repo or it does not exist")
 		return
 	}
 
@@ -63,9 +86,9 @@ func (h *SimulateAPIStatus) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to get pr")
 		if isNotFound(err) {
-			baseapp.WriteJSON(w, http.StatusNotFound, &response)
+			writeAPIError(w, http.StatusNotFound, "could not find pull request")
 		} else {
-			baseapp.WriteJSON(w, http.StatusInternalServerError, &response)
+			writeAPIError(w, http.StatusInternalServerError)
 		}
 
 		return
@@ -83,11 +106,33 @@ func (h *SimulateAPIStatus) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to get approval result for pull request")
-		baseapp.WriteJSON(w, http.StatusInternalServerError, &response)
+		writeAPIError(w, http.StatusInternalServerError)
 		return
 	}
 
 	response.Status = result.Status.String()
 	response.Description = result.StatusDescription
 	baseapp.WriteJSON(w, http.StatusOK, &response)
+}
+
+func checkAPIPermissions(ctx context.Context, client *github.Client, owner, repo string) (bool, error) {
+	username, err := middleware.GetUser(ctx)
+	if err != nil {
+		return false, errors.Wrap(err, "failed to get user from context")
+	}
+
+	level, _, err := client.Repositories.GetPermissionLevel(ctx, owner, repo, username)
+	if err != nil {
+		if isNotFound(err) {
+			return false, nil
+		}
+
+		return false, errors.Wrap(err, "failed to get user permission level")
+	}
+
+	return level.GetPermission() != "none", nil
+}
+
+func writeAPIError(w http.ResponseWriter, code int, message ...string) {
+	baseapp.WriteJSON(w, code, APIError{Status: code, Error: strings.Join(message, "; ")})
 }

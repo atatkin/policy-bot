@@ -161,6 +161,43 @@ func TestReviews(t *testing.T) {
 	}
 }
 
+func TestBranches(t *testing.T) {
+	tests := map[string]struct {
+		Base         string
+		Head         string
+		Options      Options
+		ExpectedBase string
+		ExpectedHead string
+	}{
+		"use default base branch": {
+			Base:         "develop",
+			Head:         "aa/feature1",
+			ExpectedBase: "develop",
+			ExpectedHead: "aa/feature1",
+		},
+		"use simulated base branch": {
+			Base:         "develop",
+			Head:         "aa/feature1",
+			ExpectedBase: "simulated-develop",
+			ExpectedHead: "aa/feature1",
+			Options: Options{
+				BaseBranch: "simulated-develop",
+			},
+		},
+	}
+
+	for message, test := range tests {
+		context := Context{
+			Context: &testPullContext{base: test.Base, head: test.Head},
+			options: test.Options,
+		}
+
+		base, head := context.Branches()
+		assert.Equal(t, test.ExpectedBase, base, message)
+		assert.Equal(t, test.ExpectedHead, head, message)
+	}
+}
+
 func commentAuthors(comments []*pull.Comment) []string {
 	var authors []string
 	for _, c := range comments {
@@ -183,6 +220,8 @@ type testPullContext struct {
 	pull.Context
 	comments []*pull.Comment
 	reviews  []*pull.Review
+	base     string
+	head     string
 }
 
 func (c *testPullContext) Comments() ([]*pull.Comment, error) {
@@ -191,4 +230,8 @@ func (c *testPullContext) Comments() ([]*pull.Comment, error) {
 
 func (c *testPullContext) Reviews() ([]*pull.Review, error) {
 	return c.reviews, nil
+}
+
+func (c *testPullContext) Branches() (string, string) {
+	return c.base, c.head
 }

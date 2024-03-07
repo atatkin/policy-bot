@@ -26,6 +26,15 @@ import (
 
 type userCtxKey struct{}
 
+// GetUser returns the user from the context or panics if it does exist.
+func GetUser(ctx context.Context) (string, error) {
+	if user, ok := ctx.Value(userCtxKey{}).(string); ok {
+		return user, nil
+	}
+
+	return "", errors.New("user not found in context")
+}
+
 type TokenResolver interface {
 	// ResolveToken resolves a token to a username and set of scopes. If the
 	// token is not valid, it returns an error.
